@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Простой Telegram-бот для английского клуба
+Улучшенный Telegram-бот для английского клуба
 Реализует диалоговый сценарий знакомства с новыми участниками
+Включает систему авторизации менеджеров и расширенный интерфейс
 """
 
 import logging
@@ -22,11 +23,29 @@ from telegram.ext import (
     filters,
 )
 
+# Импорт новых модулей
+from dialog_config import DIALOG_TEXTS, BUTTONS, SETTINGS, FILES
+from auth_manager import auth_manager
+from user_interface import UserInterface
+from manager_interface import ManagerInterface
+
+# Загрузка переменных окружения
+from dotenv import load_dotenv
+load_dotenv()
+
 # Настройка логирования
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+log_level = os.getenv('LOG_LEVEL', 'INFO')
+log_file = os.getenv('LOG_FILE')
+
+logging_config = {
+    'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    'level': getattr(logging, log_level.upper())
+}
+
+if log_file:
+    logging_config['filename'] = log_file
+
+logging.basicConfig(**logging_config)
 logger = logging.getLogger(__name__)
 
 # Состояния диалога
@@ -34,11 +53,16 @@ WAITING_NAME, WAITING_EXPERIENCE, WAITING_AGE, FINAL_CONSENT = range(4)
 
 # Токен бота (получить у @BotFather)
 BOT_TOKEN = os.getenv('BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE')
+DATABASE_PATH = os.getenv('DATABASE_PATH', 'english_club.db')
 
 class EnglishClubBot:
     def __init__(self):
-        self.db_path = 'english_club.db'
+        self.db_path = DATABASE_PATH
         self.init_database()
+        
+        # Инициализируем интерфейсы
+        self.user_interface = UserInterface(self.db_path)
+        self.manager_interface = ManagerInterface(self.db_path)
     
     def init_database(self):
         """Инициализация базы данных"""
@@ -99,16 +123,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     # Создаем клавиатуру для согласия на обработку данных
     keyboard = [
-        [InlineKeyboardButton("✅ Согласен на обработку данных", callback_data="data_consent_yes")],
-        [InlineKeyboardButton("❌ Не согласен", callback_data="data_consent_no")]
+        [InlineKeyboardButton(BUTTONS['data_consent']['yes'], callback_data="data_consent_yes")],
+        [InlineKeyboardButton(BUTTONS['data_consent']['no'], callback_data="data_consent_no")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    welcome_text = (
-        "🇬🇧 <b>Привет! Добро пожаловать в английский клуб!</b>\n\n"
-        "Давай знакомиться! Как тебя зовут?\n\n"
-        "Но сначала мне нужно получить твое согласие на обработку персональных данных:"
-    )
+    welcome_text = DIALOG_TEXTS['welcome']['full_text']
     
     await update.message.reply_text(
         welcome_text,
@@ -127,16 +147,14 @@ async def handle_data_consent(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data['data_consent'] = True
         
         await query.edit_message_text(
-            "✅ <b>Отлично! Согласие на обработку данных получено.</b>\n\n"
-            "Теперь скажи, как тебя зовут? 😊",
+            DIALOG_TEXTS['data_consent']['approved'],
             parse_mode='HTML'
         )
         
         return WAITING_NAME
     else:
         await query.edit_message_text(
-            "❌ К сожалению, без согласия на обработку данных я не могу продолжить регистрацию.\n\n"
-            "Если передумаешь, просто напиши /start снова! 😊"
+            DIALOG_TEXTS['data_consent']['denied']
         )
         return ConversationHandler.END
 
@@ -153,14 +171,16 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     # Создаем клавиатуру для вопроса об опыте
     keyboard = [
-        [KeyboardButton("✅ Да, изучал английский")],
-        [KeyboardButton("❌ Нет, только начинаю")]
+        [KeyboardButton(BUTTONS['experience']['yes'])],
+        [KeyboardButton(BUTTONS['experience']['no'])]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     
+    greeting_text = DIALOG_TEXTS['name_received']['greeting'].format(name=name)
+    question_text = DIALOG_TEXTS['name_received']['question']
+    
     await update.message.reply_text(
-        f"Приятно познакомиться, <b>{name}</b>! 😊\n\n"
-        f"Ты уже изучал английский раньше?",
+        f"{greeting_text}\n\n{question_text}",
         parse_mode='HTML',
         reply_markup=reply_markup
     )
@@ -173,14 +193,14 @@ async def get_experience(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     if "да" in experience.lower() or "✅" in experience:
         context.user_data['english_experience'] = "Да"
-        response = "Отлично! 👍"
+        response = DIALOG_TEXTS['experience']['yes_response']
     else:
         context.user_data['english_experience'] = "Нет"
-        response = "Замечательно! Все когда-то начинали! 🌟"
+        response = DIALOG_TEXTS['experience']['no_response']
     
     await update.message.reply_text(
         f"{response}\n\n"
-        f"Сколько тебе лет? (Просто напиши цифру)",
+        f"{DIALOG_TEXTS['age']['question']}",
         reply_markup=None  # Убираем клавиатуру
     )
     
@@ -190,9 +210,12 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Получение возраста и переход к финальному согласию"""
     try:
         age = int(update.message.text.strip())
-        if age < 5 or age > 100:
+        min_age = SETTINGS['age_limits']['min']
+        max_age = SETTINGS['age_limits']['max']
+        
+        if age < min_age or age > max_age:
             await update.message.reply_text(
-                "Пожалуйста, укажи реальный возраст (от 5 до 100 лет) 😊"
+                DIALOG_TEXTS['age']['invalid_age'].format(min_age=min_age, max_age=max_age)
             )
             return WAITING_AGE
         
@@ -200,38 +223,28 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
         # Создаем клавиатуру для финального согласия
         keyboard = [
-            [InlineKeyboardButton("✅ Даю согласие на рассылку", callback_data="newsletter_yes")],
-            [InlineKeyboardButton("❌ Не хочу получать рассылку", callback_data="newsletter_no")]
+            [InlineKeyboardButton(BUTTONS['newsletter']['yes'], callback_data="newsletter_yes")],
+            [InlineKeyboardButton(BUTTONS['newsletter']['no'], callback_data="newsletter_no")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         # Отправляем СНАОП вместе с вопросом (если файл существует)
-        snaop_file = "СнаОП с прочерками.pdf"
+        snaop_file = FILES['snaop']
         if os.path.exists(snaop_file):
             await update.message.reply_document(
                 document=open(snaop_file, 'rb'),
                 caption=(
-                    f"Отлично, {context.user_data['name']}! 🎉\n\n"
-                    f"<b>Включи уведомления в этом боте, чтобы первым получать новости, "
-                    f"полезности и анонсы активностей клуба!</b>\n\n"
-                    f"Для этого:\n"
-                    f"1. Нажми на название бота вверху чата\n"
-                    f"2. Включи уведомления 🔔\n\n"
-                    f"📄 <b>Согласие на обработку персональных данных</b>\n\n"
-                    f"И последний вопрос:"
+                    f"{DIALOG_TEXTS['notifications']['final_greeting'].format(name=context.user_data['name'])}\n\n"
+                    f"{DIALOG_TEXTS['notifications']['info']}\n\n"
+                    f"📄 <b>Согласие на обработку персональных данных</b>"
                 ),
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
         else:
             await update.message.reply_text(
-                f"Отлично, {context.user_data['name']}! 🎉\n\n"
-                f"<b>Включи уведомления в этом боте, чтобы первым получать новости, "
-                f"полезности и анонсы активностей клуба!</b>\n\n"
-                f"Для этого:\n"
-                f"1. Нажми на название бота вверху чата\n"
-                f"2. Включи уведомления 🔔\n\n"
-                f"И последний вопрос:",
+                f"{DIALOG_TEXTS['notifications']['final_greeting'].format(name=context.user_data['name'])}\n\n"
+                f"{DIALOG_TEXTS['notifications']['info']}",
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
@@ -240,7 +253,7 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
     except ValueError:
         await update.message.reply_text(
-            "Пожалуйста, напиши свой возраст цифрами (например: 25) 😊"
+            DIALOG_TEXTS['age']['invalid_format']
         )
         return WAITING_AGE
 
@@ -251,33 +264,38 @@ async def final_consent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     if query.data == "newsletter_yes":
         context.user_data['newsletter_consent'] = True
-        consent_text = "✅ <b>Отлично! Ты будешь получать все новости и анонсы!</b>"
+        consent_text = DIALOG_TEXTS['newsletter']['yes_response']
     else:
         context.user_data['newsletter_consent'] = False
-        consent_text = "✅ <b>Хорошо, рассылку отправлять не буду.</b>"
+        consent_text = DIALOG_TEXTS['newsletter']['no_response']
     
     # Сохраняем все данные в БД
     bot_instance.save_user_data(context.user_data)
     
     # Отправляем согласие на рассылку (если файл существует и пользователь согласился)
-    consent_file = "Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
+    consent_file = FILES['newsletter_consent']
     if os.path.exists(consent_file) and context.user_data.get('newsletter_consent'):
         await query.message.reply_document(
             document=open(consent_file, 'rb'),
             caption="📄 Согласие на получение рассылки"
         )
     
+    newsletter_status = '✅' if context.user_data.get('newsletter_consent') else '❌'
+    
+    summary = DIALOG_TEXTS['registration_complete']['summary_template'].format(
+        name=context.user_data['name'],
+        age=context.user_data['age'],
+        experience=context.user_data['english_experience'],
+        newsletter_status=newsletter_status
+    )
+    
     final_message = (
         f"{consent_text}\n\n"
-        f"🎉 <b>Регистрация завершена!</b>\n\n"
-        f"<b>Твои данные:</b>\n"
-        f"• Имя: {context.user_data['name']}\n"
-        f"• Возраст: {context.user_data['age']} лет\n"
-        f"• Опыт изучения: {context.user_data['english_experience']}\n"
-        f"• Согласие на данные: ✅\n"
-        f"• Согласие на рассылку: {'✅' if context.user_data.get('newsletter_consent') else '❌'}\n\n"
-        f"Добро пожаловать в наш английский клуб! 🇬🇧\n"
-        f"Скоро ты получишь информацию о ближайших занятиях! 📚"
+        f"{DIALOG_TEXTS['registration_complete']['title']}\n\n"
+        f"{DIALOG_TEXTS['registration_complete']['summary_title']}\n"
+        f"{summary}\n\n"
+        f"{DIALOG_TEXTS['registration_complete']['welcome']}\n"
+        f"{DIALOG_TEXTS['registration_complete']['next_steps']}"
     )
     
     await query.edit_message_text(
@@ -293,10 +311,121 @@ async def final_consent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Отмена диалога"""
     await update.message.reply_text(
-        "Регистрация отменена. Если захочешь зарегистрироваться, просто напиши /start! 😊"
+        DIALOG_TEXTS['cancel']['message']
     )
     context.user_data.clear()
     return ConversationHandler.END
+
+# Новые обработчики для пользовательского интерфейса
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /help"""
+    await update.message.reply_text(
+        DIALOG_TEXTS['help']['user_commands'],
+        parse_mode='HTML'
+    )
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /menu"""
+    await bot_instance.user_interface.show_user_menu(update, context)
+
+async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /profile"""
+    # Создаем факе callback_query для совместимости
+    class FakeCallbackQuery:
+        def __init__(self, user, message):
+            self.from_user = user
+            self.message = message
+        async def answer(self): pass
+        async def edit_message_text(self, text, **kwargs):
+            await self.message.reply_text(text, **kwargs)
+    
+    fake_query = FakeCallbackQuery(update.effective_user, update.message)
+    update.callback_query = fake_query
+    
+    await bot_instance.user_interface.show_user_profile(update, context)
+
+# Обработчики для менеджеров
+async def manager_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /manager"""
+    await bot_instance.manager_interface.request_auth(update, context)
+
+async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка текстовых сообщений вне диалогов"""
+    # Проверяем, не ожидаем ли мы пароль менеджера
+    if await bot_instance.manager_interface.handle_password(update, context):
+        return
+    
+    # Проверяем, не ожидаем ли мы сообщение для рассылки
+    if await bot_instance.manager_interface.handle_broadcast_message(update, context):
+        return
+    
+    # Обычная обработка сообщений
+    await update.message.reply_text(
+        "🤖 Привет! Для начала работы напиши /start\n\n"
+        "📝 Доступные команды:\n"
+        "/start - Начать регистрацию\n"
+        "/menu - Открыть меню\n"
+        "/profile - Мой профиль\n"
+        "/help - Помощь"
+    )
+
+# Обработчики callback данных
+async def handle_user_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка callback'ов пользовательского интерфейса"""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "user_menu":
+        await bot_instance.user_interface.show_user_menu(update, context)
+    elif data == "user_profile":
+        await bot_instance.user_interface.show_user_profile(update, context)
+    elif data == "user_help":
+        await bot_instance.user_interface.show_user_help(update, context)
+    elif data == "user_settings":
+        await bot_instance.user_interface.show_user_settings(update, context)
+    elif data.startswith("user_toggle_newsletter_"):
+        await bot_instance.user_interface.toggle_newsletter(update, context)
+    elif data == "user_delete_confirm":
+        await bot_instance.user_interface.confirm_delete_account(update, context)
+    elif data == "user_delete_confirmed":
+        await bot_instance.user_interface.delete_user_account(update, context)
+    elif data == "user_support":
+        await bot_instance.user_interface.show_support_info(update, context)
+    elif data == "user_materials":
+        await bot_instance.user_interface.show_materials(update, context)
+
+async def handle_manager_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка callback'ов менеджерского интерфейса"""
+    query = update.callback_query
+    data = query.data
+    
+    if data == "mgr_menu":
+        await bot_instance.manager_interface.show_manager_menu(update, context)
+    elif data == "mgr_stats":
+        await bot_instance.manager_interface.show_detailed_stats(update, context)
+    elif data == "mgr_users" or data.startswith("mgr_users_page_"):
+        page = 1
+        if data.startswith("mgr_users_page_"):
+            page = int(data.split("_")[-1])
+        await bot_instance.manager_interface.show_users_list(update, context, page)
+    elif data == "mgr_export":
+        await bot_instance.manager_interface.export_users_data(update, context)
+    elif data == "mgr_broadcast":
+        await bot_instance.manager_interface.start_broadcast(update, context)
+    elif data == "mgr_broadcast_confirm":
+        await bot_instance.manager_interface.confirm_broadcast(update, context)
+    elif data == "mgr_broadcast_cancel":
+        await bot_instance.manager_interface.cancel_broadcast(update, context)
+    elif data == "mgr_settings":
+        await bot_instance.manager_interface.show_bot_settings(update, context)
+    elif data == "mgr_logout":
+        await bot_instance.manager_interface.logout(update, context)
+    elif data == "mgr_clear":
+        await clear_manager_data(query)
+    elif data == "confirm_clear":
+        await confirm_clear_data(query)
+    elif data == "manager_cancel":
+        await manager_cancel(query)
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Простая статистика для администратора"""
@@ -330,36 +459,14 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     await update.message.reply_text(stats_text, parse_mode='HTML')
 
+# Устаревшие обработчики (оставляем для совместимости)
 async def manager_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Менеджерское меню с интеграцией manage.py"""
-    keyboard = [
-        [InlineKeyboardButton("📊 Статистика", callback_data="manager_stats")],
-        [InlineKeyboardButton("👥 Список пользователей", callback_data="manager_users")],
-        [InlineKeyboardButton("📁 Экспорт в CSV", callback_data="manager_export")],
-        [InlineKeyboardButton("🗑️ Очистить БД", callback_data="manager_clear")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        "🔧 <b>Менеджерское меню</b>\n\n"
-        "Выберите действие:",
-        parse_mode='HTML',
-        reply_markup=reply_markup
-    )
+    """Менеджерское меню - перенаправляем на новый интерфейс"""
+    await manager_command(update, context)
 
 async def handle_manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка callback'ов менеджерского меню"""
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == "manager_stats":
-        await show_manager_stats(query)
-    elif query.data == "manager_users":
-        await show_manager_users(query)
-    elif query.data == "manager_export":
-        await export_manager_data(query)
-    elif query.data == "manager_clear":
-        await clear_manager_data(query)
+    """Обработка callback'ов менеджерского меню - перенаправляем на новый интерфейс"""
+    await handle_manager_callbacks(update, context)
 
 async def show_manager_stats(query) -> None:
     """Показать детальную статистику"""
@@ -537,16 +644,37 @@ def main() -> None:
     
     # Добавляем обработчики
     application.add_handler(conv_handler)
-    application.add_handler(CommandHandler('admin', admin_stats))
-    application.add_handler(CommandHandler('manager', manager_menu))
     
-    # Обработчики для менеджерского меню
+    # Пользовательские команды
+    application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(CommandHandler('menu', menu_command))
+    application.add_handler(CommandHandler('profile', profile_command))
+    
+    # Менеджерские команды
+    application.add_handler(CommandHandler('admin', admin_stats))
+    application.add_handler(CommandHandler('manager', manager_command))
+    
+    # Обработчики callback'ов
+    application.add_handler(CallbackQueryHandler(handle_user_callbacks, pattern="^user_"))
+    application.add_handler(CallbackQueryHandler(handle_manager_callbacks, pattern="^mgr_"))
+    
+    # Старые обработчики для совместимости
     application.add_handler(CallbackQueryHandler(handle_manager_callback, pattern="^manager_"))
     application.add_handler(CallbackQueryHandler(confirm_clear_data, pattern="^confirm_clear$"))
     application.add_handler(CallbackQueryHandler(manager_cancel, pattern="^manager_cancel$"))
     
+    # Обработчик текстовых сообщений
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+    
     # Запускаем бота
+    logger.info("🤖 Бот запущен! Нажмите Ctrl+C для остановки.")
     print("🤖 Бот запущен! Нажмите Ctrl+C для остановки.")
+    
+    # Очищаем истекшие сессии при запуске
+    expired_count = auth_manager.cleanup_expired_sessions()
+    if expired_count > 0:
+        logger.info(f"Очищено {expired_count} истекших сессий")
+    
     application.run_polling()
 
 if __name__ == '__main__':
