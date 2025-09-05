@@ -5,16 +5,20 @@
 Описывает все возможные пути взаимодействия с ботом
 """
 
+import os
+import sqlite3
+import time
 from dialog_dsl import DialogBuilder, Validators, InputType, DialogChain
 from typing import Dict, Any
-import sqlite3
 
 
 # === ДЕЙСТВИЯ ДЛЯ ДИАЛОГОВ ===
 
 async def save_user_registration(update, context, session):
     """Сохранить данные регистрации пользователя"""
-    from bot import bot_instance
+    
+    # Получаем путь к БД из переменных окружения
+    db_path = os.getenv('DATABASE_PATH', 'english_club.db')
     
     user_data = {
         'telegram_id': session.user_id,
@@ -26,7 +30,27 @@ async def save_user_registration(update, context, session):
         'newsletter_consent': session.data.get('newsletter_consent', False)
     }
     
-    bot_instance.save_user_data(user_data)
+    # Сохраняем напрямую в БД, избегая циклического импорта
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT OR REPLACE INTO users 
+        (telegram_id, username, name, age, english_experience, data_consent, newsletter_consent)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        user_data['telegram_id'],
+        user_data['username'],
+        user_data['name'],
+        user_data['age'],
+        user_data['english_experience'],
+        user_data['data_consent'],
+        user_data['newsletter_consent']
+    ))
+    
+    conn.commit()
+    conn.close()
+    
     return {"registration_completed": True}
 
 
