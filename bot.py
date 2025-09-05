@@ -28,6 +28,7 @@ from dialog_config import DIALOG_TEXTS, BUTTONS, SETTINGS, FILES
 from auth_manager import auth_manager
 from user_interface import UserInterface
 from manager_interface import ManagerInterface
+from dialog_handler import init_dialog_system, get_dialog_system, debug_dialog_info, debug_cancel_dialog, debug_all_sessions
 
 # Загрузка переменных окружения
 from dotenv import load_dotenv
@@ -63,6 +64,9 @@ class EnglishClubBot:
         # Инициализируем интерфейсы
         self.user_interface = UserInterface(self.db_path)
         self.manager_interface = ManagerInterface(self.db_path)
+        
+        # Инициализируем диалоговую систему
+        self.dialog_handler = init_dialog_system(self.db_path)
     
     def init_database(self):
         """Инициализация базы данных"""
@@ -115,6 +119,11 @@ bot_instance = EnglishClubBot()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Начало диалога - приветствие и запрос имени"""
+    # Используем новую диалоговую систему
+    if await bot_instance.dialog_handler.handle_command(update, context, "/start"):
+        return ConversationHandler.END
+    
+    # Fallback на старую систему если диалог не обработан
     user = update.effective_user
     
     # Сохраняем базовую информацию о пользователе
@@ -347,10 +356,19 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # Обработчики для менеджеров
 async def manager_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка команды /manager"""
+    # Используем новую диалоговую систему для авторизации
+    if await bot_instance.dialog_handler.handle_command(update, context, "/manager"):
+        return
+    
+    # Fallback на старую систему
     await bot_instance.manager_interface.request_auth(update, context)
 
 async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка текстовых сообщений вне диалогов"""
+    # Сначала проверяем диалоговую систему
+    if await bot_instance.dialog_handler.handle_message(update, context):
+        return
+    
     # Проверяем, не ожидаем ли мы пароль менеджера
     if await bot_instance.manager_interface.handle_password(update, context):
         return
@@ -372,6 +390,10 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 # Обработчики callback данных
 async def handle_user_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка callback'ов пользовательского интерфейса"""
+    # Сначала проверяем диалоговую систему
+    if await bot_instance.dialog_handler.handle_callback(update, context):
+        return
+    
     query = update.callback_query
     data = query.data
     
@@ -396,6 +418,10 @@ async def handle_user_callbacks(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def handle_manager_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка callback'ов менеджерского интерфейса"""
+    # Сначала проверяем диалоговую систему
+    if await bot_instance.dialog_handler.handle_callback(update, context):
+        return
+    
     query = update.callback_query
     data = query.data
     
@@ -503,6 +529,11 @@ def main() -> None:
     application.add_handler(CommandHandler('admin', admin_stats))
     application.add_handler(CommandHandler('manager', manager_command))
     
+    # Команды для отладки диалогов (только для менеджеров)
+    application.add_handler(CommandHandler('dialog_info', debug_dialog_info))
+    application.add_handler(CommandHandler('dialog_cancel', debug_cancel_dialog))
+    application.add_handler(CommandHandler('dialog_sessions', debug_all_sessions))
+    
     # Обработчики callback'ов
     application.add_handler(CallbackQueryHandler(handle_user_callbacks, pattern="^user_"))
     application.add_handler(CallbackQueryHandler(handle_manager_callbacks, pattern="^mgr_"))
@@ -518,7 +549,9 @@ def main() -> None:
     # Очищаем истекшие сессии при запуске
     expired_count = auth_manager.cleanup_expired_sessions()
     if expired_count > 0:
-        logger.info(f"Очищено {expired_count} истекших сессий")
+        logger.info(f"Очищено {expired_count} истекших авторизационных сессий")
+    
+    # Диалоговые сессии будут очищаться автоматически при работе бота
     
     application.run_polling()
 
