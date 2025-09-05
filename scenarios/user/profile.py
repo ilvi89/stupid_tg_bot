@@ -7,6 +7,8 @@
 from dialog_dsl import DialogBuilder, InputType
 from ..common.validators import CommonValidators
 from ..common.actions import CommonActions
+from ..auto_register import user_scenario
+from ..registry import ScenarioCategory
 
 
 def create_profile_scenarios():
@@ -18,6 +20,14 @@ def create_profile_scenarios():
     ]
 
 
+@user_scenario(
+    id="profile_view",
+    name="Просмотр профиля",
+    description="Отображение данных профиля пользователя",
+    category=ScenarioCategory.PROFILE,
+    entry_points=["profile_view", "view_profile"],
+    tags=["profile", "view", "user"]
+)
 def create_profile_view_scenario():
     """Сценарий просмотра профиля"""
     return (DialogBuilder("profile_view", "Просмотр профиля",
@@ -28,8 +38,7 @@ def create_profile_view_scenario():
             .add_action(
                 step_id="load_profile_step",
                 action=CommonActions.get_user_from_database,
-                message="🔍 Загружаем ваш профиль...",
-                next_step="check_profile_exists_step"
+                message="🔍 Загружаем ваш профиль..."
             )
             .add_condition("load_profile_step", {
                 "user_found==True": "show_profile_step",
@@ -95,6 +104,14 @@ def create_profile_view_scenario():
             .build())
 
 
+@user_scenario(
+    id="profile_edit",
+    name="Редактирование профиля",
+    description="Изменение данных профиля пользователя",
+    category=ScenarioCategory.PROFILE,
+    entry_points=["profile_edit", "edit_profile"],
+    tags=["profile", "edit", "user"]
+)
 def create_profile_edit_scenario():
     """Сценарий редактирования профиля"""
     return (DialogBuilder("profile_edit", "Редактирование профиля",
@@ -227,8 +244,7 @@ def create_profile_edit_scenario():
             .add_action(
                 step_id="update_field_step",
                 action=CommonActions.update_user_field,
-                message="💾 Сохраняем изменения...",
-                next_step="update_result_step"
+                message="💾 Сохраняем изменения..."
             )
             .add_condition("update_field_step", {
                 "update_success==True": "edit_success_step",
@@ -294,6 +310,14 @@ def create_profile_edit_scenario():
             .build())
 
 
+@user_scenario(
+    id="profile_delete",
+    name="Удаление аккаунта",
+    description="Полное удаление аккаунта пользователя из системы",
+    category=ScenarioCategory.PROFILE,
+    entry_points=["profile_delete", "delete_account"],
+    tags=["profile", "delete", "user"]
+)
 def create_profile_delete_scenario():
     """Сценарий удаления профиля"""
     return (DialogBuilder("profile_delete", "Удаление аккаунта",

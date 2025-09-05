@@ -54,8 +54,7 @@ def create_manager_auth_scenario():
             .add_action(
                 step_id="auth_check_step",
                 action=CommonActions.authenticate_manager,
-                message="🔍 Проверяем пароль...",
-                next_step="auth_result_step"
+                message="🔍 Проверяем пароль..."
             )
             .add_condition("auth_check_step", {
                 "auth_success==True": "auth_success_step",
@@ -176,8 +175,7 @@ def create_session_check_scenario():
                 action=lambda u, c, s: {
                     "session_active": True,  # Заглушка, в реальности проверка через auth_manager
                     "time_left": 1800  # 30 минут
-                },
-                next_step="session_status_step"
+                }
             )
             .add_condition("check_session_step", {
                 "session_active==True": "session_active_step",

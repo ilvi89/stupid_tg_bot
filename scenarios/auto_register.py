@@ -71,6 +71,13 @@ def scenario(id: str = None, name: str = None, description: str = "",
             'category': category
         }
         
+        # Автоматически вызываем функцию для регистрации сценария при импорте
+        try:
+            wrapper()
+            logger.info(f"Автоматически зарегистрирован сценарий '{id}' из модуля '{func.__module__}'")
+        except Exception as e:
+            logger.error(f"Ошибка автоматической регистрации сценария '{id}': {e}")
+        
         return wrapper
     
     return decorator
@@ -116,6 +123,8 @@ class ScenarioDiscovery:
     def discover_and_register_all():
         """Обнаружить и зарегистрировать все сценарии в пакете scenarios"""
         try:
+            from .registry import get_registry
+            
             # Импортируем все модули сценариев для запуска декораторов
             from . import user, manager
             

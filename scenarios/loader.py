@@ -208,7 +208,7 @@ class ScenarioLoader:
         try:
             # Удаляем старые сценарии этого модуля
             scenarios_to_remove = []
-            for scenario_id, scenario in self._scenarios.items():
+            for scenario_id, scenario in self.registry._scenarios.items():
                 if scenario.metadata.author == module_name:
                     scenarios_to_remove.append(scenario_id)
             
@@ -232,7 +232,7 @@ class ScenarioLoader:
         """Проверить валидность всех сценариев"""
         validation_errors = {}
         
-        for scenario_id, scenario in self._scenarios.items():
+        for scenario_id, scenario in self.registry._scenarios.items():
             errors = []
             
             # Проверяем цепочку
@@ -243,7 +243,7 @@ class ScenarioLoader:
             
             # Проверяем зависимости
             for dep in scenario.metadata.dependencies:
-                if dep not in self._scenarios:
+                if dep not in self.registry._scenarios:
                     errors.append(f"Отсутствует зависимость: {dep}")
             
             if errors:
