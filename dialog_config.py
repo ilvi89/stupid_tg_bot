@@ -247,8 +247,8 @@ SETTINGS = {
 
 # Файлы документов
 FILES = {
-    'snaop': "СнаОП с прочерками.pdf",
-    'newsletter_consent': "Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
+    'snaop': "documents/СнаОП с прочерками.pdf",
+    'newsletter_consent': "documents/Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
 }
 
 # Callback data patterns

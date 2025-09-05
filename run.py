@@ -48,13 +48,13 @@ def check_files():
         return False
     
     # Проверяем файлы документов (опционально)
-    snaop_file = "СнаОП с прочерками.pdf"
+    snaop_file = "documents/СнаОП с прочерками.pdf"
     if os.path.exists(snaop_file):
         files_status.append(f"✅ {snaop_file} найден")
     else:
         files_status.append(f"⚠️ {snaop_file} не найден (будет пропущен)")
     
-    consent_file = "Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
+    consent_file = "documents/Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
     if os.path.exists(consent_file):
         files_status.append(f"✅ {consent_file} найден")
     else:

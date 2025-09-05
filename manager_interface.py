@@ -614,3 +614,56 @@ class ManagerInterface:
     def _get_uptime(self) -> str:
         """Получить время работы бота (заглушка)"""
         return "Информация недоступна"
+    
+    async def clear_database_request(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Запрос подтверждения на очистку БД"""
+        if not await self.check_auth(update, context):
+            return
+        
+        query = update.callback_query
+        await query.answer()
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Да, удалить все", callback_data="mgr_clear_confirm")],
+            [InlineKeyboardButton("❌ Отмена", callback_data="mgr_clear_cancel")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "⚠️ <b>ВНИМАНИЕ!</b>\n\n"
+            "Вы собираетесь удалить ВСЕ данные пользователей из базы данных.\n"
+            "Это действие нельзя отменить!\n\n"
+            "Продолжить?",
+            parse_mode='HTML',
+            reply_markup=reply_markup
+        )
+    
+    async def clear_database_confirm(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Подтверждение очистки БД"""
+        if not await self.check_auth(update, context):
+            return
+        
+        query = update.callback_query
+        await query.answer()
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users")
+        conn.commit()
+        conn.close()
+        
+        await query.edit_message_text(
+            "✅ <b>База данных очищена!</b>\n\n"
+            "Все данные пользователей удалены.",
+            parse_mode='HTML'
+        )
+    
+    async def clear_database_cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отмена операции очистки"""
+        query = update.callback_query
+        await query.answer()
+        
+        await query.edit_message_text("❌ Операция отменена")
+        
+        # Возвращаемся в главное меню
+        await self.show_manager_menu(update, context)
