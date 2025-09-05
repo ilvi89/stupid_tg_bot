@@ -230,13 +230,17 @@ class DSLLauncher:
             from bot import DSLTelegramBot
             
             bot = DSLTelegramBot()
-            self.application = bot.create_application()
+            # create_application является async — необходимо ожидание
+            self.application = await bot.create_application()
             
             # Запускаем
             print("\n🤖 Запускаем DSL бота...")
             print("Для остановки нажмите Ctrl+C")
             
-            await self.application.run_polling()
+            # В PTB v20+ run_polling — синхронный блокирующий вызов,
+            # поэтому запускаем его в отдельном потоке, чтобы не падал event loop
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self.application.run_polling)
             
             return True
             

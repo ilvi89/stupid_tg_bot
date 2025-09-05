@@ -21,7 +21,14 @@ from interfaces import get_user_interface, get_manager_interface, get_system_int
 
 
 # Загрузка переменных окружения
+# 1) стандартный .env
 load_dotenv()
+# 2) поддержка config.env (часто встречается в проектах)
+try:
+    load_dotenv("config.env", override=False)
+except Exception:
+    # Тихо игнорируем, если файла нет
+    pass
 
 # Настройка логирования
 log_level = os.getenv('LOG_LEVEL', 'INFO')
@@ -145,6 +152,9 @@ class DSLTelegramBot:
             self.application.add_handler(CommandHandler(command, handler))
         
         logger.info(f"Добавлено {len(debug_commands)} системных команд")
+        
+        # Базовая команда помощи, чтобы пользователи не оставались без ответа
+        self.application.add_handler(CommandHandler("help", self._help_command))
     
     async def _debug_scenario_info(self, update, context):
         """Команда отладки - информация о текущем сценарии"""
@@ -265,6 +275,19 @@ class DSLTelegramBot:
         else:
             await update.message.reply_text("ℹ️ Активных сценариев не найдено")
     
+    async def _help_command(self, update, context):
+        """Показать краткую справку по боту"""
+        help_text = (
+            "🤖 Доступные команды:\n\n"
+            "• /start — начать регистрацию\n"
+            "• /profile — управление профилем\n"
+            "• /support — поддержка\n\n"
+            "• /manager — вход менеджера\n"
+            "• /scenario_list — список сценариев\n"
+            "• /scenario_stats — статистика сценариев\n"
+        )
+        await update.message.reply_text(help_text)
+
     async def cleanup_expired_sessions(self):
         """Очистка истекших сессий (запускается периодически)"""
         try:
@@ -285,6 +308,13 @@ class DSLTelegramBot:
         """Запустить бота синхронно (PTB v20+ run_polling управляет циклом сам)"""
         # Инициализируем приложение в отдельном asyncio-цикле
         application = asyncio.run(self.create_application())
+        
+        # На Python ≥3.11 в главном потоке может отсутствовать текущий цикл.
+        # Гарантируем его наличие для корректной работы run_polling().
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
 
         # Легкая статистика после инициализации
         try:

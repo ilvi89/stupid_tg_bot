@@ -12,9 +12,12 @@ from dotenv import load_dotenv
 
 def quick_start():
     """Быстрый запуск без проверок"""
-    # Загружаем .env
+    # Загружаем конфиги окружения
     if os.path.exists('.env'):
         load_dotenv('.env')
+    # Поддержка альтернативного имени файла
+    if os.path.exists('config.env'):
+        load_dotenv('config.env')
     
     # Проверяем токен
     token = os.getenv('BOT_TOKEN')
@@ -27,7 +30,8 @@ def quick_start():
     try:
         from bot import DSLTelegramBot
         bot = DSLTelegramBot()
-        asyncio.run(bot.run())
+        # run() синхронный и сам запускает polling
+        bot.run()
     except Exception as e:
         print(f"❌ Ошибка: {e}")
 
