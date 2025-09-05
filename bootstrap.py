@@ -115,14 +115,10 @@ class DSLBootstrap:
         logger.info("Инициализация композиций...")
         
         try:
+            # Инициализируем менеджер композиций (только предопределенные, без демо)
             self.composition_manager = init_composition_manager(self.scenario_orchestrator)
-            
-            # Регистрируем демонстрационные композиции
-            from scenarios.compositions_demo import register_all_compositions
-            if register_all_compositions():
-                self.init_stats["compositions_loaded"] = len(self.composition_manager.registry.compositions)
-                logger.info(f"✅ Зарегистрировано {self.init_stats['compositions_loaded']} композиций")
-            
+            self.init_stats["compositions_loaded"] = len(self.composition_manager.registry.compositions)
+            logger.info(f"✅ Зарегистрировано {self.init_stats['compositions_loaded']} композиций")
         except Exception as e:
             error_msg = f"Ошибка инициализации композиций: {e}"
             self.init_stats["errors"].append(error_msg)

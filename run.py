@@ -222,31 +222,20 @@ def check_documents():
 
 
 def test_dsl_system():
-    """Тестирование DSL системы"""
+    """Тестирование DSL системы (без регистрации тестовых сценариев)"""
     try:
         print("🔍 Тестирование DSL системы...")
         
-        # Проверяем импорты
+        # Проверяем импорты и базовую сборку цепочки
         from dialog_dsl import DialogBuilder
-        from scenarios.registry import ScenarioRegistry, get_registry
-        from scenarios.auto_register import user_scenario
         
-        # Проверяем создание простого сценария
-        @user_scenario(id='test_scenario', name='Тест')
-        def test_scenario():
-            return (DialogBuilder('test_scenario', 'Тест')
-                    .start_with('start')
-                    .add_final('start', 'Тест завершен')
-                    .build())
+        chain = (DialogBuilder('test_scenario', 'Тест')
+                 .start_with('start')
+                 .add_final('start', 'Тест завершен')
+                 .build())
         
-        chain = test_scenario()
-        print(f"✅ Тестовый сценарий создан: {chain.name}")
-        
-        # Проверяем регистрацию
-        registry = get_registry()
-        test_registered = registry.get_scenario('test_scenario')
-        if test_registered:
-            print("✅ Сценарий успешно зарегистрирован")
+        if chain and chain.name == 'Тест':
+            print("✅ Тестовая цепочка DSL успешно создана")
         
         return True
         
@@ -328,8 +317,8 @@ def run_system_checks():
     return all_passed, critical_failed
 
 
-async def main_async():
-    """Асинхронная главная функция"""
+def main():
+    """Главная функция"""
     args = parse_arguments()
     
     print("🤖 DSL Telegram-бот для английского клуба")
@@ -376,7 +365,7 @@ async def main_async():
         from bot import DSLTelegramBot
         
         bot = DSLTelegramBot()
-        await bot.run()
+        bot.run()
         
     except KeyboardInterrupt:
         print("\n👋 Бот остановлен пользователем")
@@ -388,15 +377,7 @@ async def main_async():
         sys.exit(1)
 
 
-def main():
-    """Главная функция"""
-    try:
-        asyncio.run(main_async())
-    except KeyboardInterrupt:
-        print("\n👋 Остановка...")
-    except Exception as e:
-        print(f"❌ Ошибка запуска: {e}")
-        sys.exit(1)
+    # Завершение main без явного цикла событий
 
 
 if __name__ == '__main__':
