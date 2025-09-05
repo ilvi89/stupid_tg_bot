@@ -8,6 +8,7 @@
 import logging
 import sqlite3
 import os
+import csv
 from datetime import datetime
 from typing import Dict, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
@@ -204,25 +205,36 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        # Отправляем СНАОП (если файл существует)
+        # Отправляем СНАОП вместе с вопросом (если файл существует)
         snaop_file = "СнаОП с прочерками.pdf"
         if os.path.exists(snaop_file):
             await update.message.reply_document(
                 document=open(snaop_file, 'rb'),
-                caption="📄 Согласие на обработку персональных данных"
+                caption=(
+                    f"Отлично, {context.user_data['name']}! 🎉\n\n"
+                    f"<b>Включи уведомления в этом боте, чтобы первым получать новости, "
+                    f"полезности и анонсы активностей клуба!</b>\n\n"
+                    f"Для этого:\n"
+                    f"1. Нажми на название бота вверху чата\n"
+                    f"2. Включи уведомления 🔔\n\n"
+                    f"📄 <b>Согласие на обработку персональных данных</b>\n\n"
+                    f"И последний вопрос:"
+                ),
+                parse_mode='HTML',
+                reply_markup=reply_markup
             )
-        
-        await update.message.reply_text(
-            f"Отлично, {context.user_data['name']}! 🎉\n\n"
-            f"<b>Включи уведомления в этом боте, чтобы первым получать новости, "
-            f"полезности и анонсы активностей клуба!</b>\n\n"
-            f"Для этого:\n"
-            f"1. Нажми на название бота вверху чата\n"
-            f"2. Включи уведомления 🔔\n\n"
-            f"И последний вопрос:",
-            parse_mode='HTML',
-            reply_markup=reply_markup
-        )
+        else:
+            await update.message.reply_text(
+                f"Отлично, {context.user_data['name']}! 🎉\n\n"
+                f"<b>Включи уведомления в этом боте, чтобы первым получать новости, "
+                f"полезности и анонсы активностей клуба!</b>\n\n"
+                f"Для этого:\n"
+                f"1. Нажми на название бота вверху чата\n"
+                f"2. Включи уведомления 🔔\n\n"
+                f"И последний вопрос:",
+                parse_mode='HTML',
+                reply_markup=reply_markup
+            )
         
         return FINAL_CONSENT
         
@@ -247,7 +259,7 @@ async def final_consent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     # Сохраняем все данные в БД
     bot_instance.save_user_data(context.user_data)
     
-    # Отправляем согласие на рассылку (если файл существует)
+    # Отправляем согласие на рассылку (если файл существует и пользователь согласился)
     consent_file = "Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf"
     if os.path.exists(consent_file) and context.user_data.get('newsletter_consent'):
         await query.message.reply_document(
@@ -300,6 +312,9 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     cursor.execute("SELECT COUNT(*) FROM users WHERE english_experience = 'Да'")
     experienced_users = cursor.fetchone()[0]
     
+    cursor.execute("SELECT AVG(age) FROM users WHERE age IS NOT NULL")
+    avg_age = cursor.fetchone()[0]
+    
     conn.close()
     
     stats_text = (
@@ -310,7 +325,184 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"🆕 Новички: {total_users - experienced_users}"
     )
     
+    if avg_age:
+        stats_text += f"\n🎂 Средний возраст: {avg_age:.1f} лет"
+    
     await update.message.reply_text(stats_text, parse_mode='HTML')
+
+async def manager_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Менеджерское меню с интеграцией manage.py"""
+    keyboard = [
+        [InlineKeyboardButton("📊 Статистика", callback_data="manager_stats")],
+        [InlineKeyboardButton("👥 Список пользователей", callback_data="manager_users")],
+        [InlineKeyboardButton("📁 Экспорт в CSV", callback_data="manager_export")],
+        [InlineKeyboardButton("🗑️ Очистить БД", callback_data="manager_clear")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "🔧 <b>Менеджерское меню</b>\n\n"
+        "Выберите действие:",
+        parse_mode='HTML',
+        reply_markup=reply_markup
+    )
+
+async def handle_manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка callback'ов менеджерского меню"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "manager_stats":
+        await show_manager_stats(query)
+    elif query.data == "manager_users":
+        await show_manager_users(query)
+    elif query.data == "manager_export":
+        await export_manager_data(query)
+    elif query.data == "manager_clear":
+        await clear_manager_data(query)
+
+async def show_manager_stats(query) -> None:
+    """Показать детальную статистику"""
+    conn = sqlite3.connect(bot_instance.db_path)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE newsletter_consent = 1")
+    newsletter_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE english_experience = 'Да'")
+    experienced_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT AVG(age) FROM users WHERE age IS NOT NULL")
+    avg_age = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_date >= date('now', '-7 days')")
+    new_week = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    stats_text = (
+        f"📊 <b>Детальная статистика:</b>\n\n"
+        f"👥 Всего участников: {total_users}\n"
+        f"📧 Подписаны на рассылку: {newsletter_users}\n"
+        f"📚 С опытом изучения: {experienced_users}\n"
+        f"🆕 Новички: {total_users - experienced_users}\n"
+        f"📅 Новые за неделю: {new_week}"
+    )
+    
+    if avg_age:
+        stats_text += f"\n🎂 Средний возраст: {avg_age:.1f} лет"
+    
+    await query.edit_message_text(stats_text, parse_mode='HTML')
+
+async def show_manager_users(query) -> None:
+    """Показать список пользователей"""
+    conn = sqlite3.connect(bot_instance.db_path)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT name, age, english_experience, newsletter_consent, registration_date
+        FROM users ORDER BY registration_date DESC LIMIT 10
+    ''')
+    
+    users = cursor.fetchall()
+    conn.close()
+    
+    if not users:
+        await query.edit_message_text("📭 Пользователи не найдены")
+        return
+    
+    users_text = "👥 <b>Последние 10 пользователей:</b>\n\n"
+    
+    for user in users:
+        name, age, experience, newsletter, reg_date = user
+        newsletter_status = "✅" if newsletter else "❌"
+        users_text += f"👤 <b>{name}</b>, {age} лет\n"
+        users_text += f"   📚 Опыт: {experience}\n"
+        users_text += f"   📧 Рассылка: {newsletter_status}\n"
+        users_text += f"   📅 {reg_date}\n\n"
+    
+    await query.edit_message_text(users_text, parse_mode='HTML')
+
+async def export_manager_data(query) -> None:
+    """Экспорт данных пользователей"""
+    conn = sqlite3.connect(bot_instance.db_path)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT telegram_id, username, name, age, english_experience, 
+               data_consent, newsletter_consent, registration_date
+        FROM users ORDER BY registration_date DESC
+    ''')
+    
+    users = cursor.fetchall()
+    conn.close()
+    
+    if not users:
+        await query.edit_message_text("📭 Нет пользователей для экспорта")
+        return
+    
+    filename = f"users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([
+            'Telegram ID', 'Username', 'Имя', 'Возраст', 'Опыт изучения',
+            'Согласие на данные', 'Согласие на рассылку', 'Дата регистрации'
+        ])
+        
+        for user in users:
+            writer.writerow(user)
+    
+    await query.edit_message_text(
+        f"✅ <b>Данные экспортированы!</b>\n\n"
+        f"📁 Файл: {filename}\n"
+        f"📊 Пользователей: {len(users)}",
+        parse_mode='HTML'
+    )
+    
+    # Отправляем файл
+    await query.message.reply_document(
+        document=open(filename, 'rb'),
+        caption=f"📊 Экспорт пользователей ({len(users)} записей)"
+    )
+
+async def clear_manager_data(query) -> None:
+    """Запрос подтверждения на очистку БД"""
+    keyboard = [
+        [InlineKeyboardButton("✅ Да, удалить все", callback_data="confirm_clear")],
+        [InlineKeyboardButton("❌ Отмена", callback_data="manager_cancel")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        "⚠️ <b>ВНИМАНИЕ!</b>\n\n"
+        "Вы собираетесь удалить ВСЕ данные пользователей из базы данных.\n"
+        "Это действие нельзя отменить!\n\n"
+        "Продолжить?",
+        parse_mode='HTML',
+        reply_markup=reply_markup
+    )
+
+async def confirm_clear_data(query) -> None:
+    """Подтверждение очистки БД"""
+    conn = sqlite3.connect(bot_instance.db_path)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users")
+    conn.commit()
+    conn.close()
+    
+    await query.edit_message_text(
+        "✅ <b>База данных очищена!</b>\n\n"
+        "Все данные пользователей удалены.",
+        parse_mode='HTML'
+    )
+
+async def manager_cancel(query) -> None:
+    """Отмена операции"""
+    await query.edit_message_text("❌ Операция отменена")
 
 def main() -> None:
     """Главная функция запуска бота"""
@@ -346,10 +538,16 @@ def main() -> None:
     # Добавляем обработчики
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler('admin', admin_stats))
+    application.add_handler(CommandHandler('manager', manager_menu))
+    
+    # Обработчики для менеджерского меню
+    application.add_handler(CallbackQueryHandler(handle_manager_callback, pattern="^manager_"))
+    application.add_handler(CallbackQueryHandler(confirm_clear_data, pattern="^confirm_clear$"))
+    application.add_handler(CallbackQueryHandler(manager_cancel, pattern="^manager_cancel$"))
     
     # Запускаем бота
     print("🤖 Бот запущен! Нажмите Ctrl+C для остановки.")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 if __name__ == '__main__':
     main()

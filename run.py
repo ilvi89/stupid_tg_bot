@@ -69,14 +69,21 @@ def main():
     """Главная функция проверки и запуска"""
     print("🤖 Проверка конфигурации Telegram-бота для английского клуба\n")
     
-    # Загружаем переменные из .env если файл существует
-    if os.path.exists('.env'):
-        print("📄 Загружаем переменные из .env файла")
-        with open('.env', 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip() and not line.startswith('#'):
-                    key, value = line.strip().split('=', 1)
-                    os.environ[key] = value
+    # Загружаем переменные из .env или config.env если файл существует
+    env_files = ['.env', 'config.env']
+    for env_file in env_files:
+        if os.path.exists(env_file):
+            print(f"📄 Загружаем переменные из {env_file} файла")
+            try:
+                with open(env_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if line.strip() and not line.startswith('#'):
+                            key, value = line.strip().split('=', 1)
+                            os.environ[key] = value
+                break
+            except UnicodeDecodeError:
+                print(f"⚠️ Ошибка кодировки в файле {env_file}, пробуем следующий...")
+                continue
     
     # Проверяем все компоненты
     checks = [
