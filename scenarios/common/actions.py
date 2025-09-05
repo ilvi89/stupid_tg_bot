@@ -100,6 +100,19 @@ class CommonActions:
         except Exception as e:
             logger.error(f"Ошибка отправки документа: {e}")
             return {"send_success": False, "error": str(e)}
+
+    @staticmethod
+    async def send_document_if_newsletter_consent(update: Update, context: ContextTypes.DEFAULT_TYPE,
+                                                 session: Any) -> Dict[str, Any]:
+        """Отправить документ согласия на рассылку, если пользователь дал согласие"""
+        try:
+            if session.data.get('newsletter_consent'):
+                session.data['document_type'] = 'newsletter_consent'
+                return await CommonActions.send_document(update, context, session)
+            return {"skip_document": True}
+        except Exception as e:
+            logger.error(f"Ошибка условной отправки документа: {e}")
+            return {"send_success": False, "error": str(e)}
     
     @staticmethod
     async def get_user_from_database(update: Update, context: ContextTypes.DEFAULT_TYPE,
@@ -131,6 +144,7 @@ class CommonActions:
                     "english_experience": result[4],
                     "data_consent": bool(result[5]),
                     "newsletter_consent": bool(result[6]),
+                    "newsletter_status": "✅ Включена" if bool(result[6]) else "❌ Отключена",
                     "registration_date": result[7]
                 }
             else:
@@ -454,8 +468,17 @@ class CommonActions:
                 f"• Согласие на данные: ✅\n"
                 f"• Согласие на рассылку: {'✅' if newsletter else '❌'}"
             )
+            newsletter_message = (
+                "✅ Отлично! Ты будешь получать все новости и анонсы!"
+                if newsletter else "✅ Хорошо, рассылку отправлять не буду."
+            )
             
-            return {"summary_success": True, "summary": summary}
+            return {
+                "summary_success": True,
+                "summary": summary,
+                "newsletter_message": newsletter_message,
+                "newsletter_status": "✅ Включена" if newsletter else "❌ Отключена"
+            }
             
         except Exception as e:
             logger.error(f"Ошибка форматирования сводки: {e}")

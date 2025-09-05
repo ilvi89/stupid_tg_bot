@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 # Импорт DSL системы
 from bootstrap import DSLBootstrap
 from scenarios.executor import get_executor, get_integrator
+from scenarios.registry import get_registry
 from interfaces import get_user_interface, get_manager_interface, get_system_interface
 
 
@@ -50,6 +51,8 @@ class DSLTelegramBot:
         self.application = None
         self.bootstrap = DSLBootstrap(self.db_path)
         self.init_completed = False
+        self.dialog_engine = None
+        self.scenario_executor = None
         
         # Инициализация компонентов
         self._init_database()
@@ -91,6 +94,9 @@ class DSLTelegramBot:
         if result["success"]:
             self.init_completed = True
             logger.info("DSL система инициализирована успешно")
+            # Сохраняем ссылки на инициализированные компоненты
+            self.dialog_engine = self.bootstrap.dialog_engine
+            self.scenario_executor = get_executor()
             
             # Выводим отчет
             report = self.bootstrap.get_initialization_report()

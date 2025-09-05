@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from scenarios.registry import get_registry
+from scenarios.registry import get_registry, ScenarioType
 from scenarios.executor import get_executor
 
 
@@ -26,7 +26,7 @@ class DSLUserInterface:
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Показать главное меню пользователя"""
         # Получаем доступные пользовательские сценарии
-        user_scenarios = self.registry.get_scenarios_by_type("user")
+        user_scenarios = self.registry.get_scenarios_by_type(ScenarioType.USER)
         
         keyboard = []
         
@@ -43,7 +43,7 @@ class DSLUserInterface:
         
         # Дополнительные сценарии
         additional_scenarios = []
-        for scenario in user_scenarios.values():
+        for scenario in user_scenarios:
             if scenario.metadata.enabled and "demo" not in scenario.metadata.tags:
                 for entry_point in scenario.entry_points:
                     if not entry_point.startswith("/") and entry_point not in ["start", "registration"]:
@@ -83,8 +83,8 @@ class DSLUserInterface:
         )
         
         # Добавляем информацию о доступных сценариях
-        user_scenarios = self.registry.get_scenarios_by_type("user")
-        enabled_scenarios = [s for s in user_scenarios.values() if s.metadata.enabled]
+        user_scenarios = self.registry.get_scenarios_by_type(ScenarioType.USER)
+        enabled_scenarios = [s for s in user_scenarios if s.metadata.enabled]
         
         for scenario in enabled_scenarios[:5]:  # Показываем первые 5
             help_text += f"• {scenario.metadata.name} - {scenario.metadata.description[:50]}...\n"
@@ -147,8 +147,8 @@ class DSLManagerInterface:
             return
         
         # Получаем менеджерские сценарии
-        manager_scenarios = self.registry.get_scenarios_by_type("manager")
-        enabled_scenarios = [s for s in manager_scenarios.values() if s.metadata.enabled]
+        manager_scenarios = self.registry.get_scenarios_by_type(ScenarioType.MANAGER)
+        enabled_scenarios = [s for s in manager_scenarios if s.metadata.enabled]
         
         keyboard = []
         

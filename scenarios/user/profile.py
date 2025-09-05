@@ -53,7 +53,7 @@ def create_profile_view_scenario():
                     "<b>Имя:</b> {name}\n"
                     "<b>Возраст:</b> {age} лет\n"
                     "<b>Опыт изучения английского:</b> {english_experience}\n"
-                    "<b>Рассылка:</b> {'✅ Включена' if newsletter_consent else '❌ Отключена'}\n"
+                    "<b>Рассылка:</b> {newsletter_status}\n"
                     "<b>Дата регистрации:</b> {registration_date}\n\n"
                     "Что хотите сделать?"
                 ),
