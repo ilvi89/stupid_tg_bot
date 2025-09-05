@@ -5,10 +5,13 @@
 """
 
 from .compositions import CompositionBuilder
+import logging
 from .auto_register import scenario
 from .registry import ScenarioType, ScenarioCategory
 from dialog_dsl import DialogBuilder, InputType
 from .common.validators import CommonValidators
+
+logger = logging.getLogger(__name__)
 
 
 # === ДЕМОНСТРАЦИОННЫЕ СЦЕНАРИИ ===
@@ -129,11 +132,9 @@ def create_complete_onboarding():
                               "Полный цикл онбординга от регистрации до знакомства с возможностями")
             .add_scenarios([
                 "user_registration",
-                "profile_view",
-                "support_faq_only"
+                "profile_view"
             ])
             .add_transition("user_registration", "profile_view", "registration_completed==True")
-            .add_transition("profile_view", "support_faq_only", "show_help==True")
             .set_entry_points(["/onboarding", "full_onboarding"])
             .set_metadata(
                 estimated_time="15-20 минут",
@@ -191,8 +192,7 @@ def register_all_compositions():
         # Регистрируем демонстрационные композиции
         demo_compositions = [
             create_demo_user_journey(),
-            create_complete_onboarding(),
-            create_manager_dashboard_flow()
+            create_complete_onboarding()
         ]
         
         for composition in demo_compositions:
@@ -229,27 +229,5 @@ def auto_register_everything():
 
 
 if __name__ == "__main__":
-    # Настраиваем логирование
-    setup_logging()
-    logger = logging.getLogger(__name__)
-    
-    print("🎭 Демонстрация композиций сценариев")
-    print("=" * 40)
-    
-    # Автоматическая регистрация
-    if auto_register_everything():
-        print("✅ Все сценарии и композиции зарегистрированы")
-        
-        # Показываем статистику
-        from .registry import get_registry
-        registry = get_registry()
-        stats = registry.get_statistics()
-        
-        print(f"\n📊 Статистика:")
-        print(f"• Сценариев: {stats['total_scenarios']}")
-        print(f"• Активных: {stats['enabled_scenarios']}")
-        print(f"• Точек входа: {stats['entry_points']}")
-        
-    else:
-        print("❌ Ошибка регистрации")
-        sys.exit(1)
+    # Минимальный CLI-блок удалён, чтобы не тянуть служебные функции в рантайме
+    print("This module is not intended to be run directly.")

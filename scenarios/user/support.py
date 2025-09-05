@@ -7,6 +7,8 @@
 import time
 from dialog_dsl import DialogBuilder, InputType
 from ..common.validators import CommonValidators
+from ..auto_register import user_scenario
+from ..registry import ScenarioCategory
 
 
 def create_support_scenarios():
@@ -17,6 +19,13 @@ def create_support_scenarios():
     ]
 
 
+@user_scenario(
+    id="support_request",
+    name="Обращение в поддержку",
+    description="Создание тикета обращения в службу поддержки",
+    category=ScenarioCategory.SUPPORT,
+    entry_points=["user_support", "support", "scenario_support_request"]
+)
 def create_support_request_scenario():
     """Сценарий создания обращения в поддержку"""
     return (DialogBuilder("support_request", "Обращение в поддержку",
@@ -109,7 +118,8 @@ def create_support_request_scenario():
                 action=lambda u, c, s: {
                     "ticket_id": f"TICKET_{int(time.time())}",
                     "created_at": time.time(),
-                    "status": "created"
+                    "status": "created",
+                    "contact": s.data.get("email_input_step") or s.data.get("phone_input_step") or "Telegram"
                 },
                 message="🎫 Создаем ваше обращение...",
                 next_step="ticket_created_step"
@@ -123,7 +133,7 @@ def create_support_request_scenario():
                     "🎫 <b>Номер обращения:</b> {ticket_id}\n"
                     "📂 <b>Категория:</b> {support_category_step}\n"
                     "📝 <b>Описание:</b> {support_message_step}\n"
-                    "📧 <b>Контакт:</b> {email_input_step or phone_input_step or 'Telegram'}\n\n"
+                    "📧 <b>Контакт:</b> {contact}\n\n"
                     "⏱️ <b>Время ответа:</b> до 24 часов\n\n"
                     "Мы свяжемся с вами для решения вопроса.\n"
                     "Спасибо за обращение! 🙏"
@@ -159,6 +169,13 @@ def create_support_request_scenario():
             .build())
 
 
+@user_scenario(
+    id="support_faq",
+    name="Частые вопросы",
+    description="Просмотр ответов на частые вопросы",
+    category=ScenarioCategory.SUPPORT,
+    entry_points=["support_faq", "scenario_support_faq"]
+)
 def create_support_faq_scenario():
     """Сценарий просмотра частых вопросов"""
     return (DialogBuilder("support_faq", "Частые вопросы",
@@ -383,7 +400,14 @@ def create_support_faq_scenario():
             .build())
 
 
-def create_support_faq_scenario():
+@user_scenario(
+    id="support_faq_only",
+    name="Частые вопросы (быстрый доступ)",
+    description="Быстрый доступ к часто задаваемым вопросам",
+    category=ScenarioCategory.SUPPORT,
+    entry_points=["scenario_support_faq_only"]
+)
+def create_support_faq_only_scenario():
     """Отдельный сценарий для FAQ"""
     return (DialogBuilder("support_faq_only", "Частые вопросы",
                          "Быстрый доступ к часто задаваемым вопросам")

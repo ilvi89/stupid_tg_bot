@@ -21,15 +21,6 @@ def create_broadcast_scenarios():
     ]
 
 
-@manager_scenario(
-    id="broadcast_creation",
-    name="Создание рассылки",
-    description="Создание и отправка сообщения всем подписчикам",
-    category=ScenarioCategory.COMMUNICATION,
-    entry_points=["mgr_broadcast", "broadcast", "create_broadcast"],
-    tags=["broadcast", "communication"],
-    priority=8
-)
 def create_broadcast_creation_scenario():
     """Сценарий создания рассылки"""
     return (DialogBuilder("broadcast_creation", "Создание рассылки",

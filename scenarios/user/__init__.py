@@ -6,10 +6,8 @@
 
 from .registration import create_user_registration_scenario
 from .profile import create_profile_scenarios
-from .support import create_support_scenarios
 
 __all__ = [
     'create_user_registration_scenario',
-    'create_profile_scenarios', 
-    'create_support_scenarios'
+    'create_profile_scenarios'
 ]

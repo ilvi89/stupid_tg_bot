@@ -281,47 +281,30 @@ class DSLTelegramBot:
         except Exception as e:
             logger.error(f"Ошибка очистки сессий: {e}")
     
-    async def run(self):
-        """Запустить бота"""
-        # Создаем приложение
-        application = await self.create_application()
-        
-        # Настраиваем периодическую очистку
-        async def periodic_cleanup():
-            while True:
-                await asyncio.sleep(3600)  # Каждый час
-                await self.cleanup_expired_sessions()
-        
-        # Запускаем очистку в фоне
-        cleanup_task = asyncio.create_task(periodic_cleanup())
-        
+    def run(self):
+        """Запустить бота синхронно (PTB v20+ run_polling управляет циклом сам)"""
+        # Инициализируем приложение в отдельном asyncio-цикле
+        application = asyncio.run(self.create_application())
+
+        # Легкая статистика после инициализации
         try:
-            logger.info("🤖 DSL Бот запущен! Нажмите Ctrl+C для остановки.")
-            print("🤖 DSL Бот запущен! Нажмите Ctrl+C для остановки.")
-            
-            # Первоначальная очистка
-            await self.cleanup_expired_sessions()
-            
-            # Показываем статистику загруженных сценариев
             registry = get_registry()
             stats = registry.get_statistics()
             logger.info(f"Активных сценариев: {stats['enabled_scenarios']}")
-            
-            # Запускаем polling
-            await application.run_polling()
-            
-        except KeyboardInterrupt:
-            logger.info("Получен сигнал остановки")
-        finally:
-            cleanup_task.cancel()
-            logger.info("Бот остановлен")
+        except Exception:
+            pass
+
+        logger.info("🤖 DSL Бот запущен! Нажмите Ctrl+C для остановки.")
+        print("🤖 DSL Бот запущен! Нажмите Ctrl+C для остановки.")
+        # Блокирующий запуск PTB (без коллизий event loop)
+        application.run_polling()
 
 
 def main():
     """Главная функция"""
     try:
         bot = DSLTelegramBot()
-        asyncio.run(bot.run())
+        bot.run()
     except Exception as e:
         logger.error(f"Критическая ошибка: {e}")
         print(f"❌ Критическая ошибка: {e}")

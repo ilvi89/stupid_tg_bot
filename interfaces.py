@@ -33,9 +33,7 @@ class DSLUserInterface:
         # Основные функции
         main_functions = [
             ("👤 Мой профиль", "scenario_profile_view"),
-            ("✏️ Редактировать профиль", "scenario_profile_edit"),
-            ("📞 Поддержка", "scenario_support_request"),
-            ("❓ Частые вопросы", "scenario_support_faq_only")
+            ("✏️ Редактировать профиль", "scenario_profile_edit")
         ]
         
         for text, callback_data in main_functions:
@@ -77,7 +75,6 @@ class DSLUserInterface:
             "/start - Регистрация в клубе\n"
             "/menu - Главное меню\n"
             "/profile - Мой профиль\n"
-            "/support - Обращение в поддержку\n"
             "/help - Эта справка\n\n"
             "🎯 <b>Доступные сценарии:</b>\n"
         )
@@ -91,13 +88,10 @@ class DSLUserInterface:
         
         help_text += (
             f"\n📊 Всего доступно {len(enabled_scenarios)} сценариев\n\n"
-            "❓ <b>Нужна помощь?</b>\n"
-            "Используйте /support для обращения в службу поддержки!"
+            ""
         )
         
         keyboard = [
-            [InlineKeyboardButton("📞 Обратиться в поддержку", callback_data="scenario_support_request")],
-            [InlineKeyboardButton("❓ Частые вопросы", callback_data="scenario_support_faq_only")],
             [InlineKeyboardButton("🔙 В главное меню", callback_data="show_main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -368,8 +362,7 @@ class DSLCompositionInterface:
             # Пользовательские композиции
             user_compositions = [
                 ("🎯 Полный онбординг", "composition_complete_onboarding"),
-                ("👤 Управление профилем", "composition_profile_management"),
-                ("📞 Поток поддержки", "composition_user_support_flow")
+                ("👤 Управление профилем", "composition_profile_management")
             ]
             
             for text, callback_data in user_compositions:

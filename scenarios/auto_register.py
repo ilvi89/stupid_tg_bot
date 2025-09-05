@@ -129,10 +129,10 @@ class ScenarioDiscovery:
             from . import user, manager
             
             # Пользовательские сценарии
-            from .user import registration, profile, support
+            from .user import registration, profile
             
             # Менеджерские сценарии  
-            from .manager import auth, broadcast, administration
+            from .manager import auth, administration
             
             registry = get_registry()
             stats = registry.get_statistics()
