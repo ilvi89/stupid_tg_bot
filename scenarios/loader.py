@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any, Callable
 from pathlib import Path
 
 from dialog_dsl import DialogChain
-from .registry import ScenarioRegistry, ScenarioMetadata, get_registry
+from .registry import ScenarioRegistry, ScenarioMetadata, ScenarioType, ScenarioCategory, get_registry
 
 
 logger = logging.getLogger(__name__)

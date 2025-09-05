@@ -7,7 +7,7 @@
 import logging
 import os
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from dialog_dsl import init_dialog_engine
 from scenarios.registry import get_registry
@@ -242,7 +242,7 @@ class DSLLauncher:
             
             # Создаем Telegram Application
             print("\n📱 Создание Telegram приложения...")
-            from bot_dsl import DSLTelegramBot
+            from bot import DSLTelegramBot
             
             bot = DSLTelegramBot()
             self.application = bot.create_application()
