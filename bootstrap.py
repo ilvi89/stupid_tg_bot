@@ -15,7 +15,7 @@ from scenarios.loader import get_loader
 from scenarios.executor import init_scenario_system
 from scenarios.compositions import init_composition_manager
 from scenarios.auto_register import ScenarioDiscovery
-from dsl_interfaces import get_user_interface, get_manager_interface, get_composition_interface, get_system_interface
+from interfaces import get_user_interface, get_manager_interface, get_composition_interface, get_system_interface
 
 
 logger = logging.getLogger(__name__)

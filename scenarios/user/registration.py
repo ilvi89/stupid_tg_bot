@@ -126,10 +126,7 @@ def create_user_registration_scenario():
             # 7. Отправка СНАОП документа
             .add_action(
                 step_id="send_snaop_step", 
-                action=lambda u, c, s: {
-                    "file_path": "documents/СнаОП с прочерками.pdf",
-                    "file_caption": "📄 Согласие на обработку персональных данных"
-                },
+                action=lambda u, c, s: {"document_type": "snaop"},
                 next_step="prepare_data_step"
             )
             
@@ -156,9 +153,7 @@ def create_user_registration_scenario():
             .add_action(
                 step_id="send_newsletter_consent_step",
                 action=lambda u, c, s: {
-                    "file_path": "documents/Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf" 
-                               if s.data.get("newsletter_consent") else None,
-                    "file_caption": "📄 Согласие на получение рассылки"
+                    "document_type": "newsletter_consent"
                 } if s.data.get("newsletter_consent") else {"skip_document": True},
                 next_step="format_summary_step"
             )

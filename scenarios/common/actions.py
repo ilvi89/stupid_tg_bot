@@ -71,18 +71,28 @@ class CommonActions:
                           session: Any) -> Dict[str, Any]:
         """Отправить документ пользователю"""
         try:
-            document_path = session.data.get('document_path')
-            caption = session.data.get('document_caption', 'Документ')
+            # Определяем путь к документу из переменных окружения или данных сессии
+            document_type = session.data.get('document_type', 'snaop')
+            
+            if document_type == 'snaop':
+                document_path = os.getenv('SNAOP_DOCUMENT_PATH', 'documents/СнаОП с прочерками.pdf')
+                caption = 'Согласие на обработку персональных данных'
+            elif document_type == 'newsletter_consent':
+                document_path = os.getenv('NEWSLETTER_CONSENT_PATH', 'documents/Согласие_на_рассылку_информационных_и_рекламных_сообщений_с_прочерками.pdf')
+                caption = 'Согласие на получение рассылки'
+            else:
+                document_path = session.data.get('document_path')
+                caption = session.data.get('document_caption', 'Документ')
             
             if not document_path or not os.path.exists(document_path):
-                return {"send_success": False, "error": "Документ не найден"}
+                return {"send_success": False, "error": "Документ не найден", "path": document_path}
             
             message = update.callback_query.message if update.callback_query else update.message
             
             with open(document_path, 'rb') as doc:
                 await message.reply_document(
                     document=doc,
-                    caption=caption
+                    caption=f"📄 {caption}"
                 )
             
             return {"send_success": True, "document_sent": document_path}
