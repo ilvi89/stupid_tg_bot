@@ -80,7 +80,7 @@ def create_user_registration_scenario():
             # 4. Вопрос об опыте изучения английского
             .add_choice(
                 step_id="experience_question_step",
-                message="Приятно познакомиться, <b>{name_question_step}</b>! 😊\n\nТы уже изучал английский раньше?",
+                message="Приятно познакомиться, <b>{name_question}</b>! 😊\n\nТы уже изучал английский раньше?",
                 inline_keyboard=[
                     [("✅ Да, изучал английский", "experience_yes")],
                     [("❌ Нет, только начинаю", "experience_no")]
@@ -92,7 +92,6 @@ def create_user_registration_scenario():
             .add_question(
                 step_id="age_question_step",
                 message=(
-                    "{experience_response}\n\n"
                     "Сколько тебе лет? (Просто напиши цифру)"
                 ),
                 input_type=InputType.NUMBER,
@@ -107,7 +106,7 @@ def create_user_registration_scenario():
             .add_choice(
                 step_id="newsletter_question_step",
                 message=(
-                    "Отлично, <b>{name_question_step}</b>! 🎉\n\n"
+                    "Отлично, <b>{name_question}</b>! 🎉\n\n"
                     "<b>Включи уведомления в этом боте, чтобы первым получать новости, "
                     "полезности и анонсы активностей клуба!</b>\n\n"
                     "Для этого:\n"
@@ -126,7 +125,7 @@ def create_user_registration_scenario():
             # 7. Отправка СНАОП документа
             .add_action(
                 step_id="send_snaop_step", 
-                action=lambda u, c, s: {"document_type": "snaop"},
+                action=CommonActions.send_document,
                 next_step="prepare_data_step"
             )
             
@@ -135,8 +134,10 @@ def create_user_registration_scenario():
                 step_id="prepare_data_step",
                 action=lambda u, c, s: {
                     "data_consent": True,
-                    "experience": "Да" if s.data.get("experience_question_step") == "experience_yes" else "Нет",
-                    "newsletter_consent": s.data.get("newsletter_question_step") == "newsletter_yes"
+                    "name": s.data.get("name_question"),
+                    "age": int(s.data.get("age_question")) if s.data.get("age_question") else None,
+                    "experience": "Да" if s.data.get("experience_question") == "experience_yes" else "Нет",
+                    "newsletter_consent": s.data.get("newsletter_question") == "newsletter_yes"
                 },
                 next_step="save_user_step"
             )
@@ -152,9 +153,7 @@ def create_user_registration_scenario():
             # 10. Отправка согласия на рассылку (если нужно)
             .add_action(
                 step_id="send_newsletter_consent_step",
-                action=lambda u, c, s: {
-                    "document_type": "newsletter_consent"
-                } if s.data.get("newsletter_consent") else {"skip_document": True},
+                action=CommonActions.send_document_if_newsletter_consent,
                 next_step="format_summary_step"
             )
             
@@ -169,7 +168,7 @@ def create_user_registration_scenario():
             .add_final(
                 step_id="registration_complete_step",
                 message=(
-                    "{'✅ Отлично! Ты будешь получать все новости и анонсы!' if newsletter_consent else '✅ Хорошо, рассылку отправлять не буду.'}\n\n"
+                    "{newsletter_message}\n\n"
                     "🎉 <b>Регистрация завершена!</b>\n\n"
                     "<b>Твои данные:</b>\n"
                     "{summary}\n\n"

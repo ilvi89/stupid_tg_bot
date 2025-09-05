@@ -115,11 +115,9 @@ def create_user_onboarding_composition():
                               "Полный цикл знакомства с новым пользователем")
             .add_scenarios([
                 "user_registration",
-                "profile_view", 
-                "support_faq_only"
+                "profile_view"
             ])
             .add_transition("user_registration", "profile_view", "registration_completed==True")
-            .add_transition("profile_view", "support_faq_only", "always")
             .set_entry_points(["/onboarding", "full_registration"])
             .set_metadata(
                 duration_estimate="10-15 минут",
@@ -135,11 +133,9 @@ def create_manager_workflow_composition():
                               "Полный цикл работы менеджера от входа до выполнения задач")
             .add_scenarios([
                 "manager_auth",
-                "admin_stats",
-                "broadcast_creation"
+                "admin_stats"
             ])
             .add_transition("manager_auth", "admin_stats", "auth_success==True")
-            .add_transition("admin_stats", "broadcast_creation", "want_broadcast==True")
             .set_entry_points(["/manager_flow", "manager_workflow"])
             .set_metadata(
                 duration_estimate="5-20 минут",
@@ -150,20 +146,13 @@ def create_manager_workflow_composition():
 
 
 def create_user_support_flow_composition():
-    """Композиция потока поддержки пользователя"""
+    """Композиция потока поддержки пользователя (удалена)"""
     return (CompositionBuilder("user_support_flow", "Поток поддержки пользователя",
-                              "Полный цикл обращения в поддержку с FAQ и тикетами")
+                              "Деактивировано")
             .add_scenarios([
-                "support_faq_only",
-                "support_request"
+                "user_registration"
             ])
-            .add_transition("support_faq_only", "support_request", "need_personal_help==True")
-            .set_entry_points(["/support", "user_support", "help_needed"])
-            .set_metadata(
-                duration_estimate="5-15 минут",
-                complexity="low",
-                auto_escalation=True
-            )
+            .set_entry_points([])
             .build())
 
 
@@ -197,20 +186,18 @@ def create_admin_dashboard_composition():
                 "admin_stats",
                 "user_management",
                 "data_export",
-                "broadcast_creation",
                 "system_management"
             ])
             # Переходы из авторизации
             .add_transition("manager_auth", "admin_stats", "auth_success_step=='show_stats'")
             .add_transition("manager_auth", "user_management", "auth_success_step=='show_users'")
-            .add_transition("manager_auth", "broadcast_creation", "auth_success_step=='start_broadcast'")
             .add_transition("manager_auth", "data_export", "auth_success_step=='export_data'")
             .add_transition("manager_auth", "system_management", "auth_success_step=='show_settings'")
             
             # Переходы между административными функциями
             .add_transition("admin_stats", "data_export", "export_stats==True")
             .add_transition("user_management", "data_export", "export_users==True")
-            .add_transition("broadcast_creation", "admin_stats", "view_stats==True")
+            
             
             .set_entry_points(["/admin", "/dashboard", "admin_panel"])
             .set_metadata(

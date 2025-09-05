@@ -7,6 +7,8 @@
 from dialog_dsl import DialogBuilder, InputType
 from ..common.validators import CommonValidators
 from ..common.actions import CommonActions
+from ..auto_register import manager_scenario
+from ..registry import ScenarioCategory
 
 
 def create_admin_scenarios():
@@ -19,6 +21,15 @@ def create_admin_scenarios():
     ]
 
 
+@manager_scenario(
+    id="admin_stats",
+    name="Статистика системы",
+    description="Просмотр детальной статистики пользователей и активности",
+    category=ScenarioCategory.ADMINISTRATION,
+    entry_points=["admin_stats", "scenario_admin_stats"],
+    tags=["admin", "stats"],
+    priority=5
+)
 def create_stats_viewing_scenario():
     """Сценарий просмотра статистики"""
     return (DialogBuilder("admin_stats", "Статистика системы",
@@ -145,6 +156,15 @@ def create_stats_viewing_scenario():
             .build())
 
 
+@manager_scenario(
+    id="user_management",
+    name="Управление пользователями",
+    description="Просмотр, поиск и управление пользователями",
+    category=ScenarioCategory.ADMINISTRATION,
+    entry_points=["user_management", "scenario_user_management"],
+    tags=["admin"],
+    priority=4
+)
 def create_user_management_scenario():
     """Сценарий управления пользователями"""
     return (DialogBuilder("user_management", "Управление пользователями",
@@ -235,6 +255,15 @@ def create_user_management_scenario():
             .build())
 
 
+@manager_scenario(
+    id="data_export",
+    name="Экспорт данных",
+    description="Экспорт пользователей и статистики",
+    category=ScenarioCategory.ADMINISTRATION,
+    entry_points=["data_export", "scenario_data_export"],
+    tags=["admin"],
+    priority=4
+)
 def create_data_export_scenario():
     """Сценарий экспорта данных"""
     return (DialogBuilder("data_export", "Экспорт данных",
@@ -266,8 +295,7 @@ def create_data_export_scenario():
             .add_action(
                 step_id="execute_export_step",
                 action=CommonActions.export_users_data,
-                message="📁 Подготавливаем экспорт...",
-                next_step="export_result_step"
+                message="📁 Подготавливаем экспорт..."
             )
             .add_condition("execute_export_step", {
                 "export_success==True": "export_success_step",
@@ -313,6 +341,15 @@ def create_data_export_scenario():
             .build())
 
 
+@manager_scenario(
+    id="system_management",
+    name="Управление системой",
+    description="Системные операции и настройки бота",
+    category=ScenarioCategory.ADMINISTRATION,
+    entry_points=["system_management", "scenario_system_management"],
+    tags=["admin"],
+    priority=4
+)
 def create_system_management_scenario():
     """Сценарий управления системой"""
     return (DialogBuilder("system_management", "Управление системой",
@@ -367,8 +404,7 @@ def create_system_management_scenario():
             .add_action(
                 step_id="execute_clear_step",
                 action=CommonActions.clear_database,
-                message="🗑️ Очищаем базу данных...",
-                next_step="clear_result_step"
+                message="🗑️ Очищаем базу данных..."
             )
             .add_condition("execute_clear_step", {
                 "clear_success==True": "clear_success_step",

@@ -105,17 +105,6 @@ class DSLBootstrap:
                 self.init_stats["scenarios_loaded"] = stats.get("total_scenarios", 0)
                 logger.info(f"✅ Автоматически обнаружено {self.init_stats['scenarios_loaded']} сценариев")
             
-            # Дополнительная загрузка из директории
-            loader = get_loader()
-            scenarios_dir = os.path.join(os.path.dirname(__file__), "scenarios")
-            load_result = loader.load_from_directory(scenarios_dir)
-            
-            if load_result["errors"] > 0:
-                for error in load_result["error_details"]:
-                    self.init_stats["warnings"].append(error)
-            
-            self.init_stats["scenarios_loaded"] += load_result["loaded"]
-            
         except Exception as e:
             error_msg = f"Ошибка обнаружения сценариев: {e}"
             self.init_stats["errors"].append(error_msg)

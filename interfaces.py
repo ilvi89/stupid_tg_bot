@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from scenarios.registry import get_registry
+from scenarios.registry import get_registry, ScenarioType
 from scenarios.executor import get_executor
 
 
@@ -26,16 +26,14 @@ class DSLUserInterface:
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Показать главное меню пользователя"""
         # Получаем доступные пользовательские сценарии
-        user_scenarios = self.registry.get_scenarios_by_type("user")
+        user_scenarios = self.registry.get_scenarios_by_type(ScenarioType.USER)
         
         keyboard = []
         
         # Основные функции
         main_functions = [
             ("👤 Мой профиль", "scenario_profile_view"),
-            ("✏️ Редактировать профиль", "scenario_profile_edit"),
-            ("📞 Поддержка", "scenario_support_request"),
-            ("❓ Частые вопросы", "scenario_support_faq_only")
+            ("✏️ Редактировать профиль", "scenario_profile_edit")
         ]
         
         for text, callback_data in main_functions:
@@ -43,7 +41,7 @@ class DSLUserInterface:
         
         # Дополнительные сценарии
         additional_scenarios = []
-        for scenario in user_scenarios.values():
+        for scenario in user_scenarios:
             if scenario.metadata.enabled and "demo" not in scenario.metadata.tags:
                 for entry_point in scenario.entry_points:
                     if not entry_point.startswith("/") and entry_point not in ["start", "registration"]:
@@ -77,27 +75,23 @@ class DSLUserInterface:
             "/start - Регистрация в клубе\n"
             "/menu - Главное меню\n"
             "/profile - Мой профиль\n"
-            "/support - Обращение в поддержку\n"
             "/help - Эта справка\n\n"
             "🎯 <b>Доступные сценарии:</b>\n"
         )
         
         # Добавляем информацию о доступных сценариях
-        user_scenarios = self.registry.get_scenarios_by_type("user")
-        enabled_scenarios = [s for s in user_scenarios.values() if s.metadata.enabled]
+        user_scenarios = self.registry.get_scenarios_by_type(ScenarioType.USER)
+        enabled_scenarios = [s for s in user_scenarios if s.metadata.enabled]
         
         for scenario in enabled_scenarios[:5]:  # Показываем первые 5
             help_text += f"• {scenario.metadata.name} - {scenario.metadata.description[:50]}...\n"
         
         help_text += (
             f"\n📊 Всего доступно {len(enabled_scenarios)} сценариев\n\n"
-            "❓ <b>Нужна помощь?</b>\n"
-            "Используйте /support для обращения в службу поддержки!"
+            ""
         )
         
         keyboard = [
-            [InlineKeyboardButton("📞 Обратиться в поддержку", callback_data="scenario_support_request")],
-            [InlineKeyboardButton("❓ Частые вопросы", callback_data="scenario_support_faq_only")],
             [InlineKeyboardButton("🔙 В главное меню", callback_data="show_main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -147,8 +141,8 @@ class DSLManagerInterface:
             return
         
         # Получаем менеджерские сценарии
-        manager_scenarios = self.registry.get_scenarios_by_type("manager")
-        enabled_scenarios = [s for s in manager_scenarios.values() if s.metadata.enabled]
+        manager_scenarios = self.registry.get_scenarios_by_type(ScenarioType.MANAGER)
+        enabled_scenarios = [s for s in manager_scenarios if s.metadata.enabled]
         
         keyboard = []
         
@@ -368,8 +362,7 @@ class DSLCompositionInterface:
             # Пользовательские композиции
             user_compositions = [
                 ("🎯 Полный онбординг", "composition_complete_onboarding"),
-                ("👤 Управление профилем", "composition_profile_management"),
-                ("📞 Поток поддержки", "composition_user_support_flow")
+                ("👤 Управление профилем", "composition_profile_management")
             ]
             
             for text, callback_data in user_compositions:
